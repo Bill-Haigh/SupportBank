@@ -1,7 +1,8 @@
 
 #! I am aware that I havent quite got there with making the scripts run correctly. WIP.
 #! I am also aware that I have used a mixture of camel/snake/etc will tidy up at the end.
-
+#TODO change to classes "accounts" and "transactions"
+#TODO is there a way of passing parameters to entry points on console
 import csv
 import logging
 logger = logging.getLogger()

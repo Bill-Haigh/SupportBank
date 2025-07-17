@@ -31,7 +31,8 @@ def List(account, transactions):
     print(listOfTransactions)
 
 
-
+def Test():
+    print("that worked")
 
 
 
@@ -41,5 +42,3 @@ List('Rob S', Transactions2014List)
 
 
 #TODO list all should output the names of each person and the total amout they owe or are owed
-
-#TODO list [acount] should also print a list of every transaction, with a date and narative for that account with that name

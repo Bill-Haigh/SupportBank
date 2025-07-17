@@ -16,8 +16,8 @@ with open ('./DataFiles/Transactions2014.csv', mode = 'r') as file:
         accountsDict[account] = 0
 
     for lines in Transactions2014List:
-        accountsDict[lines['From']] -= float(lines['Amount'])
-        accountsDict[lines['To']] += float(lines['Amount'])
+        accountsDict[lines['From']] -= int(float(lines['Amount'])*100)
+        accountsDict[lines['To']] += int(float(lines['Amount'])*100)
 
 
 print(accountsList)

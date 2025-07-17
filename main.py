@@ -4,7 +4,7 @@ with open ('./DataFiles/Transactions2014.csv', mode = 'r') as file:
     Transactions2014 = csv.DictReader(file)
     Transactions2014List = list(Transactions2014)
 
-def extractAccounts(transactions):
+def List_All(transactions):
     accountsList = []
     #loops through transactions adding all names to a list of accounts
     for lines in transactions:
@@ -23,7 +23,23 @@ def extractAccounts(transactions):
     print(accountsList)
     print(accountsDict)
 
-extractAccounts(Transactions2014List)
+def List(account, transactions):
+    listOfTransactions = []
+    for lines in transactions:
+        if lines['From'] == account or lines['To'] == account:
+            listOfTransactions.append(lines)
+    print(listOfTransactions)
 
 
-#TODO deal with rounding errors
+
+
+
+
+
+List_All(Transactions2014List)
+List('Rob S', Transactions2014List)
+
+
+#TODO list all should output the names of each person and the total amout they owe or are owed
+
+#TODO list [acount] should also print a list of every transaction, with a date and narative for that account with that name

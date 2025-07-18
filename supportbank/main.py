@@ -8,7 +8,7 @@ import sys
 
 logger = logging.getLogger()
 logging.basicConfig(filename="SupportBank.log", filemode="w", level=logging.DEBUG)
-logger.debug("I am in the log file")
+logger.info("Logging started.")
 
 class Transaction:
     def __init__(self, data):
@@ -17,12 +17,14 @@ class Transaction:
         self.To = data["To"]
         self.Narrative = data["Narrative"]
         self.Amount = float(data["Amount"])
+        logger.info("Transaction created successfully")
 
 class Account:
     def __init__(self, name):
         self.name = name
         self.balance = 0
         self.transactions = []
+        logger.info("Account created successfully.")
 
     def apply_transaction(self, transaction):
         if transaction.From == self.name:
@@ -51,8 +53,7 @@ def List_All(transactions):
     print("Balances:")
     for account in accountsDict.values():
         print(f"{account.name}: £{account.balance / 100:.2f}")
-    print("If you wish to see a detailed list of transactions do the following:")
-    print("poetry run list_account <account> <csv_filename>")
+    logger.info("Accounts and balances displayed successfully")
 
 def cli_List_All():
     if len(sys.argv) < 2:
@@ -75,3 +76,33 @@ def cli_List():
     filename = f"./DataFiles/{sys.argv[2]}.csv"
     transactions = read_transactions(filename)
     List(account, transactions)
+
+def main():
+    print("Welcome to SupportBank")
+    while True:
+        print("\nWhat would you like to do?")
+        print("1. List all balances")
+        print("2. List transactions for an account")
+        print("3. Quit")
+        choice = input("Enter the number of your choice: ").strip()
+
+        if choice == "1":
+            filename = input("Enter CSV filename (without .csv): ").strip()
+            try:
+                transactions = read_transactions(f"./DataFiles/{filename}.csv")
+                List_All(transactions)
+            except FileNotFoundError:
+                print("File not found.")
+        elif choice == "2":
+            account = input("Enter account name: ").strip()
+            filename = input("Enter CSV filename (without .csv): ").strip()
+            try:
+                transactions = read_transactions(f"./DataFiles/{filename}.csv")
+                List(account, transactions)
+            except FileNotFoundError:
+                print("File not found.")
+        elif choice == "3":
+            print("Goodbye!")
+            break
+        else:
+            print("Invalid choice. Please try again.")

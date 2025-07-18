@@ -1,10 +1,9 @@
 #! I am also aware that I have used a mixture of camel/snake/etc will tidy up at the end. Also why doesnt python have multi-line comments
-# TODO change to classes "accounts" and "transactions"
-#! Now in the console you can run "poetry run List_All Transactions2014" or other files as you like
 
 import csv
 import logging
 import sys
+import os
 
 logger = logging.getLogger()
 logging.basicConfig(filename="SupportBank.log", filemode="w", level=logging.DEBUG)
@@ -40,6 +39,21 @@ def read_transactions(filename):
         logger.info(f'{filename} read and transformed to list')
         return transactions
 
+def list_available_csv_files():
+    data_dir = "./DataFiles"
+    try:
+        files = [f[:-4] for f in os.listdir(data_dir) if f.endswith(".csv")]
+        if not files:
+            print("No CSV files found in ./DataFiles/")
+        else:
+            print("Available CSV files:")
+            for f in files:
+                print(f" - {f}")
+        return files
+    except FileNotFoundError:
+        print("The ./DataFiles directory does not exist")
+        return []
+
 def List_All(transactions):
     accountsDict = {}
 
@@ -64,9 +78,14 @@ def cli_List_All():
     List_All(transactions)
 
 def List(account, transactions):
+    account_found = False
     for tx in transactions:
         if tx.From == account or tx.To == account:
+            account_found = True
             print(f"{tx.Date} | From: {tx.From} | To: {tx.To} | {tx.Narrative} | £{tx.Amount:.2f}")
+    if not account_found:
+        print(f"Account '{account}' not found in any transactions.")
+
 
 def cli_List():
     if len(sys.argv) < 3:
@@ -87,6 +106,9 @@ def main():
         choice = input("Enter the number of your choice: ").strip()
 
         if choice == "1":
+            available = list_available_csv_files()
+            if not available:
+                continue
             filename = input("Enter CSV filename (without .csv): ").strip()
             try:
                 transactions = read_transactions(f"./DataFiles/{filename}.csv")
@@ -95,12 +117,16 @@ def main():
                 print("File not found.")
         elif choice == "2":
             account = input("Enter account name: ").strip()
+            available = list_available_csv_files()
+            if not available:
+                continue
             filename = input("Enter CSV filename (without .csv): ").strip()
             try:
                 transactions = read_transactions(f"./DataFiles/{filename}.csv")
                 List(account, transactions)
             except FileNotFoundError:
                 print("File not found.")
+
         elif choice == "3":
             print("Goodbye!")
             break

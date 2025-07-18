@@ -26,3 +26,4 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.scripts]
 List_All = "main:cli_List_All"
+list_account = "main:cli_List"

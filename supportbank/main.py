@@ -2,7 +2,7 @@
 
 import csv
 import logging
-import sys
+from datetime import datetime
 import os
 
 logger = logging.getLogger()
@@ -31,14 +31,30 @@ class Account:
         self.transactions.append(transaction)
 
 def read_transactions(filename):
-    try:
-        with open(filename, mode='r') as file:
-            reader = csv.DictReader(file)
-            transactions = [Transaction(row) for row in reader]
-            logger.info(f'{filename} read and transformed to list')
-            return transactions
-    except Exception as e:
-        logger.error(f"failed to read {filename}: {e}")
+    with open(filename, mode='r') as file:
+        reader = csv.DictReader(file)
+        transactions = []
+        line_number = 2
+
+        for row in reader:
+            try:
+                float(row["Amount"])
+
+                datetime.strptime(row["Date"], "%d/%m/%Y")
+
+                transaction = Transaction(row)
+                transactions.append(transaction)
+
+            except ValueError as e:
+                account_name = row.get("From", "UNKNOWN")
+                logger.warning(f"Invalid transaction on line {line_number}: {row} — {e}")
+                print(f"Skipped invalid transaction on line {line_number} involving account '{account_name}'. See log for details.")
+
+            line_number += 1
+
+        logger.info(f"{filename} read with {len(transactions)} valid transactions")
+        return transactions
+
 
 def list_available_csv_files():
     data_dir = "./DataFiles"

@@ -5,6 +5,7 @@ import json
 import logging
 from datetime import datetime
 import os
+import xml.etree.ElementTree as ET
 
 logger = logging.getLogger()
 logging.basicConfig(filename="SupportBank.log", filemode="w", level=logging.DEBUG)
@@ -13,7 +14,6 @@ logger.info("Logging started.")
 
 class Transaction:
     def __init__(self, data):
-        # Support both CSV and JSON schemas, with all possible key casings
         self.Date = data.get("Date") or data.get("date")
         self.From = (
             data.get("From") or data.get("fromAccount") or data.get("FromAccount")
@@ -59,17 +59,15 @@ def read_transactions(filename):
                         f"Skipped invalid transaction on line {line_number} involving account '{account_name}'. See log for details."
                     )
                 line_number += 1
-    if filename.endswith(".json"):
+    elif filename.endswith(".json"):
         with open(filename, mode="r") as file:
             try:
                 data = json.load(file)
                 for idx, row in enumerate(data, start=1):
                     try:
-                        # Support both Amount/amount and Date/date keys
                         amount = row.get("Amount") or row.get("amount")
                         float(amount)
                         date_val = row.get("Date") or row.get("date")
-                        # JSON date format may differ, try several common formats
                         parsed = False
                         for fmt in ("%d/%m/%Y", "%Y-%m-%d", "%Y-%m-%dT%H:%M:%S"):
                             try:
@@ -98,33 +96,68 @@ def read_transactions(filename):
             except json.JSONDecodeError as e:
                 logger.error(f"Failed to parse JSON file {filename}: {e}")
                 print(f"Failed to parse JSON file: {e}")
+    elif filename.endswith(".xml"):
+        try:
+            from datetime import timedelta
+
+            tree = ET.parse(filename)
+            root = tree.getroot()
+            for idx, elem in enumerate(root.findall("SupportTransaction"), start=1):
+                try:
+                    # Date is an attribute, value is a child, parties are nested
+                    date_val = elem.attrib.get("Date")
+                    # Excel date serial to datetime
+                    try:
+                        excel_epoch = datetime(1899, 12, 30)
+                        date_obj = excel_epoch + timedelta(days=int(float(date_val)))
+                        date_val_fmt = date_obj.strftime("%d/%m/%Y")
+                    except Exception:
+                        date_val_fmt = date_val
+                    amount = float(elem.find("Value").text)
+                    narrative = elem.find("Description").text
+                    parties = elem.find("Parties")
+                    from_account = (
+                        parties.find("From").text
+                        if parties is not None and parties.find("From") is not None
+                        else None
+                    )
+                    to_account = (
+                        parties.find("To").text
+                        if parties is not None and parties.find("To") is not None
+                        else None
+                    )
+
+                    transaction_dict = {
+                        "Date": date_val_fmt,
+                        "date": date_val_fmt,
+                        "From": from_account,
+                        "fromAccount": from_account,
+                        "FromAccount": from_account,
+                        "To": to_account,
+                        "toAccount": to_account,
+                        "ToAccount": to_account,
+                        "Narrative": narrative,
+                        "narrative": narrative,
+                        "Amount": amount,
+                        "amount": amount,
+                    }
+                    transaction = Transaction(transaction_dict)
+                    transactions.append(transaction)
+                except (ValueError, AttributeError) as e:
+                    logger.warning(
+                        f"Invalid transaction in XML at index {idx}: {elem} — {e}"
+                    )
+                    print(
+                        f"Skipped invalid transaction in XML at index {idx}. See log for details."
+                    )
+        except ET.ParseError as e:
+            logger.error(f"Failed to parse XML file {filename}: {e}")
+            print(f"Failed to parse XML file: {e}")
     else:
-        print("Unsupported file type. Only .csv and .json are supported.")
+        print("Unsupported file type. Only .csv, .json, and .xml are supported.")
         logger.warning(f"Unsupported file type: {filename}")
     logger.info(f"{filename} read with {len(transactions)} valid transactions")
     return transactions
-
-
-def list_available_csv_files():
-    # removed duplicate/empty definition
-    data_dir = "./DataFiles"
-    try:
-        files = [
-            f for f in os.listdir(data_dir) if f.endswith(".csv") or f.endswith(".json")
-        ]
-        if not files:
-            print("No CSV or JSON files found in ./DataFiles/")
-            logger.warning("No CSV or JSON files found in ./DataFiles/")
-        else:
-            print("Available data files:")
-            for f in files:
-                print(f" - {f}")
-            logger.info("Available data files listed")
-        return files
-    except FileNotFoundError:
-        print("The ./DataFiles directory does not exist")
-        logger.warning("The ./DataFiles directory does not exist")
-        return []
 
 
 def List_All(transactions):
@@ -132,10 +165,14 @@ def List_All(transactions):
     logger.info("showing account balances")
     for tx in transactions:
         for name in [tx.From, tx.To]:
+            if name is None:
+                continue
             if name not in accountsDict:
                 accountsDict[name] = Account(name)
-        accountsDict[tx.From].apply_transaction(tx)
-        accountsDict[tx.To].apply_transaction(tx)
+        if tx.From is not None:
+            accountsDict[tx.From].apply_transaction(tx)
+        if tx.To is not None:
+            accountsDict[tx.To].apply_transaction(tx)
 
     print("Balances:")
     for account in accountsDict.values():
@@ -148,11 +185,13 @@ def list_available_data_files():
     data_dir = "./DataFiles"
     try:
         files = [
-            f for f in os.listdir(data_dir) if f.endswith(".csv") or f.endswith(".json")
+            f
+            for f in os.listdir(data_dir)
+            if f.endswith(".csv") or f.endswith(".json") or f.endswith(".xml")
         ]
         if not files:
             print("No CSV or JSON files found in ./DataFiles/")
-            logger.warning("No CSV or JSON files found in ./DataFiles/")
+            logger.warning("No CSV, JSON, or XML files found in ./DataFiles/")
         else:
             print("Available data files:")
             for f in files:
@@ -193,9 +232,17 @@ def main():
             available = list_available_data_files()
             if not available:
                 continue
-            filename = input("Enter filename (with extension .csv or .json): ").strip()
-            if not (filename.endswith(".csv") or filename.endswith(".json")):
-                print("Invalid file extension. Please enter a .csv or .json file.")
+            filename = input(
+                "Enter filename (with extension .csv, .json, or .xml): "
+            ).strip()
+            if not (
+                filename.endswith(".csv")
+                or filename.endswith(".json")
+                or filename.endswith(".xml")
+            ):
+                print(
+                    "Invalid file extension. Please enter a .csv, .json, or XML file."
+                )
                 continue
             try:
                 transactions = read_transactions(f"./DataFiles/{filename}")
@@ -207,9 +254,17 @@ def main():
             available = list_available_data_files()
             if not available:
                 continue
-            filename = input("Enter filename (with extension .csv or .json): ").strip()
-            if not (filename.endswith(".csv") or filename.endswith(".json")):
-                print("Invalid file extension. Please enter a .csv or .json file.")
+            filename = input(
+                "Enter filename (with extension .csv, .json, or .xml): "
+            ).strip()
+            if not (
+                filename.endswith(".csv")
+                or filename.endswith(".json")
+                or filename.endswith(".xml")
+            ):
+                print(
+                    "Invalid file extension. Please enter a .csv, .json, or XML file."
+                )
                 continue
             try:
                 transactions = read_transactions(f"./DataFiles/{filename}")
